@@ -1,85 +1,104 @@
 ---
 name: pymol-visualization
 description: >
-  Generate publication-quality molecular visualization images using PyMOL.
-  Use this skill whenever the user mentions PyMOL, molecular visualization,
-  protein rendering, structure figures, PDB visualization, ray tracing
-  molecules, or wants to create images of proteins, ligands, binding sites,
-  protein-protein interactions, or any biomolecular structure. Also trigger
-  when the user wants to: make a figure of a crystal structure for a paper
-  or presentation; render a protein surface; show binding pockets; visualize
-  protein-ligand interactions; create Goodsell-style illustrations; produce
-  cartoon representations with highlighted residues; compare multiple
-  structures side by side; or generate any molecular graphics output —
-  even if they don't mention "PyMOL" by name. Trigger for any request
-  involving PDB files, molecular surfaces, cartoon ribbons, stick models,
-  electron density, or structural biology figures.
+  Generate publication-quality molecular visualization images with PyMOL.
+  Use for PDB/CIF/PSE structure figures, protein cartoons, ligand binding
+  sites, protein-protein interfaces, mutation highlights, surfaces, structure
+  comparisons, Goodsell-style renders, ray-traced molecular graphics, and
+  iterative revisions of existing PyMOL figures or sessions.
 ---
 
 # PyMOL Visualization Skill
 
-Generate publication-quality molecular structure images using PyMOL.
+Generate reproducible molecular structure figures with PyMOL: a `.pml` script,
+a rendered `.png`, and an editable `.pse` session.
 
 ## Prerequisites
 
 PyMOL must be installed. Check with:
 ```bash
-pymol -c -q -e "print('ok')" 2>/dev/null && echo "PyMOL available" || echo "PyMOL not found"
+pymol -c -q -d "quit" >/dev/null && echo "PyMOL available" || echo "PyMOL not found"
 ```
 If missing: `conda install -c conda-forge pymol-open-source`.
 
-In Codex, the skill can be installed and triggered without PyMOL, but actual
-rendering requires the `pymol` executable to be available on `PATH`.
+The skill can be triggered without PyMOL, but rendering requires a working
+PyMOL command. If PyMOL is only installed in a conda environment, run through
+that environment, for example `conda run -n proteinhunter pymol -c -q script.pml`.
+
+## Operating Modes
+
+Use the smallest mode that fits:
+
+1. **New figure**: write a fresh `.pml` from a PDB ID or structure file.
+2. **File-session iteration**: revise the latest `.pml` or load the latest
+   `.pse`, then save a new version. This is the default for multi-turn edits.
+3. **Live PyMOL session**: only when the user explicitly says PyMOL is running
+   with RPC/GUI and asks to control it. Still save `.pml`, `.png`, and `.pse`.
 
 ## Workflow
 
 ### 1. Ask the User
 
-Before writing any script, clarify:
-- **Structure**: PDB ID, uploaded file path, or AlphaFold model?
-- **Goal**: What does the figure show? (e.g. protein overview, binding site, PPI interface, active site, mutation, surface, alignment)
-- **Style preference**: Any preferred colors or theme? Journal figure vs. presentation vs. artistic?
+Ask only for missing information that blocks the figure:
+- **Structure**: PDB ID, local file, existing `.pse`, or predicted model path.
+- **Goal**: overview, binding site, interface, active site, mutation, surface,
+  alignment, or another clear visual target.
+- **Style**: paper, presentation, clean technical, or artistic.
 
-### 2. Write a .pml Script and Run It
+If the user asks for a revision of an existing output, first locate the newest
+`.pml`, `.pse`, and `.png` in the task's output directory and infer the intended
+starting point from file names and modification times.
+
+### 2. Read the Right Reference
+
+Read `references/recipes.md` before writing scene-specific commands. It contains
+the reusable patterns for binding sites, interfaces, active sites, mutations,
+surfaces, alignments, labels, distances, and Goodsell-style renders.
+
+### 3. Write and Run a Versioned Script
+
+Use a task-local output directory and never overwrite prior versions:
 
 ```bash
-pymol -c -q script.pml
+mkdir -p pymol_outputs/<task_slug>
+pymol -c -q pymol_outputs/<task_slug>/scene_v01.pml
 ```
-`-c` = no GUI (headless), `-q` = quiet. For Python API logic, use `pymol -c -q -r script.py`.
 
-### 3. Read the Reference Before Writing
+If `pymol` is not on `PATH`, replace it with the environment-qualified command,
+for example `conda run -n proteinhunter pymol -c -q ...`.
 
-Read `references/recipes.md` before writing — it contains scene-specific recipes and
-essential PyMOL commands organized by visualization goal.
+For revisions, create `scene_v02.*`, `scene_v03.*`, etc. Prefer editing the
+previous `.pml`; if only a `.pse` exists, start with `load previous.pse`.
+Make one focused visual change per revision unless the user asks for a broader
+restyle.
 
 ### 4. Deliver Output
 
-Always deliver **three files**:
-1. **PNG image** — the rendered figure
-2. **PML script** — so the user can reproduce or tweak
-3. **PSE session** — so the user can open in PyMOL GUI and adjust interactively
+Always deliver:
+1. **PNG image**: rendered figure
+2. **PML script**: reproducible commands
+3. **PSE session**: editable PyMOL session
 
-Save outputs to a task-local directory, usually `pymol_outputs/` under the
-current working directory, unless the user specifies another path. In the final
-response, provide the absolute paths to the PNG, PML, and PSE files.
+Before claiming success, verify all three files exist and the PNG/PSE are
+non-empty. Return absolute paths.
 
 ## Script Template
 
-Every script should follow this structure:
+New figure:
 
 ```pml
 reinitialize
 
-# --- Load ---
+# Load
 fetch 4HHB, async=0
 # or: load /path/to/structure.pdb, myprotein
 
-# --- Clean ---
+# Clean
 remove solvent
 remove elem H
 set valence, 0
 
-# --- Base look ---
+# Base look
 bg_color white
 space cmyk
 set ray_shadow, 0
@@ -97,76 +116,56 @@ set cartoon_rect_length, 1
 set cartoon_discrete_colors, on
 dss
 
-# --- Representation (scene-specific) ---
+# Representation - adapt from references/recipes.md
 hide everything
 show cartoon
-# ...
 
-# --- Color ---
+# Color
 util.color_chains("(all) and elem C", _self=cmd)
 util.cnc("all", _self=cmd)
 
-# --- Camera ---
+# Camera
 orient
-# zoom sele, 8
 
-# --- Save session BEFORE ray tracing ---
-save pymol_outputs/structure.pse
-
-# --- Render ---
+save pymol_outputs/example/scene_v01.pse
 ray 2400, 1800
-png pymol_outputs/structure.png, dpi=150
+png pymol_outputs/example/scene_v01.png, dpi=150
 quit
 ```
 
-## Essential Patterns
+For a revision from an existing session:
 
-**Show sidechains cleanly:**
 ```pml
-cmd.show("sticks", "((byres (sele)) & (sc. | (n. CA) | (n. N & r. PRO)))")
+reinitialize
+load pymol_outputs/example/scene_v01.pse
+
+# Requested edit only: rotate view, recolor, relabel, adjust zoom, etc.
+
+save pymol_outputs/example/scene_v02.pse
+ray 2400, 1800
+png pymol_outputs/example/scene_v02.png, dpi=150
+quit
 ```
 
-**Molecule-agnostic coloring:**
-```pml
-util.color_chains("(sele) and elem C", _self=cmd)
-util.cnc("sele", _self=cmd)
-```
+Optional live PyMOL/RPC helper, only after the user confirms `pymol -R` is
+running:
 
-**Surface + cartoon as separate objects:**
-```pml
-create surf_obj, sele, zoom=0
-show surface, surf_obj
-set transparency, 0.5, surf_obj
-cmd.color_deep("white", "surf_obj", 0)
-```
+```python
+from xmlrpc import client
 
-**Ball-and-stick for ligands:**
-```pml
-show sticks, ligand
-show spheres, ligand
-set sphere_scale, 0.25, ligand
-set stick_radius, 0.15, ligand
-```
-
-**Goodsell style (flat, illustrative):**
-```pml
-set ray_trace_mode, 3
-set ray_trace_color, black
-unset specular
-set ray_trace_gain, 0
-unset depth_cue
-set ambient, 1.0
-set direct, 0.0
-set reflect, 0.0
+pymol = client.ServerProxy("http://localhost:9123/RPC2")
+pymol.do("set cartoon_transparency, 0.3")
+pymol.do("save pymol_outputs/example/live_edit_v01.pse")
+pymol.do("png pymol_outputs/example/live_edit_v01.png, width=1800, height=1350, ray=1")
 ```
 
 ## Key Rules
 
-1. **Always `space cmyk`** for print colors
-2. **Always `remove elem H`** unless user needs hydrogens
-3. **Always save `.pse`** before ray tracing — this is the user's editable session
-4. **`set valence, 0`** unless showing ligand bond orders
-5. **Create separate objects** for surface overlays (transparency is per-object)
-6. **Use `async=0`** with `fetch` — otherwise structure isn't loaded when next command runs
-7. **End script with `quit`** — otherwise PyMOL hangs in batch mode
-8. **Render large** (1200x900+) — downscale later for quality
+1. Use `space cmyk` for print-oriented colors.
+2. Remove solvent and hydrogens unless requested.
+3. Save `.pse` before ray tracing.
+4. Use `async=0` with `fetch`.
+5. End batch scripts with `quit`.
+6. Render at 1200x900 or larger.
+7. Version outputs instead of overwriting.
+8. Use live PyMOL/RPC only when requested.
