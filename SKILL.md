@@ -5,7 +5,9 @@ description: >
   Use for PDB/CIF/PSE structure figures, protein cartoons, ligand binding
   sites, protein-protein interfaces, mutation highlights, surfaces, structure
   comparisons, Goodsell-style renders, ray-traced molecular graphics, and
-  iterative revisions of existing PyMOL figures or sessions.
+  iterative revisions of existing PyMOL figures or sessions, including concise
+  post-render assembly of comparison panels when the story depends on multiple
+  PyMOL views.
 ---
 
 # PyMOL Visualization Skill
@@ -81,6 +83,44 @@ Always deliver:
 
 Before claiming success, verify all three files exist and the PNG/PSE are
 non-empty. Return absolute paths.
+
+### 5. Assemble Comparison Panels When Needed
+
+Use this only when the user asks for a story figure, comparison panel, gallery,
+report image, or slide-ready molecular visual. Keep it small; PyMOL still owns
+the molecular render, while the assembler only arranges real rendered PNGs and
+labels.
+
+1. Inspect the rendered PNGs before composing. Do not infer image content from
+   filenames alone.
+2. Write one sentence for the figure's claim before layout, such as a
+   conformational shift, binding-site change, mutant effect, ligand pose,
+   interface difference, or model-confidence comparison.
+3. Use a small versioned assembler in the same output directory, such as
+   `assemble_v01.py` or `assemble_v01.mjs`. Save the composite as
+   `panel_v01.png` and keep source renders unchanged.
+4. Attach every label and metric to the exact panel, state, chain, residue,
+   pose, mutant, time point, or model it describes. Never mix metrics from
+   different panels into one undifferentiated block.
+5. Make the comparison rule explicit for the project:
+   - fit/compatibility panels: favorable evidence should be visually and
+     numerically separated from unfavorable evidence;
+   - contrast/control panels: explain whether the expected signal is gain,
+     loss, displacement, exposure, burial, contact change, clash, distance, or
+     confidence change;
+   - proxy metrics such as contacts, clashes, PAE, pLDDT, distances, and buried
+     area must be named as proxies unless independently validated.
+6. Prefer one question per composite, 2-4 panels, shared camera/color rules,
+   and minimal labels. Remove decorative layout that does not clarify the claim.
+7. Write a tiny manifest or caption with source image paths, structure/session
+   paths, metric definitions, and the interpretation caveat.
+8. Before delivery, view the composite at final size and check that text is
+   readable, labels point to the right state, no elements overlap, and all
+   molecular panels are real PyMOL renders.
+
+If the user asks for a full deck or PDF, finish these assembled figures first,
+then pass them to the presentation workflow rather than expanding this skill
+into a slide-generation system.
 
 ## Script Template
 
